@@ -7,6 +7,7 @@ import com.example.product_service_15_05_24.models.Product;
 import com.example.product_service_15_05_24.services.ProductService;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +20,7 @@ public class ProductController {
 
     private ProductService productService;
     private ModelMapper modelMapper;
-    public ProductController(@Qualifier("selfProductService") ProductService productService, ModelMapper modelMapper){
+    public ProductController(@Qualifier("fakeStoreProductService") ProductService productService, ModelMapper modelMapper){
         this.productService = productService;
         this.modelMapper = modelMapper;
     }
@@ -38,6 +39,7 @@ public class ProductController {
         return convertToProductResponseDto(product);
     }
 
+    /*
     @GetMapping("/products")
     public List<ProductResponseDto> getAllProducts(){
         List<Product> products = productService.getAllProducts();
@@ -47,6 +49,20 @@ public class ProductController {
         }
         return productResponseDtos;
     }
+
+     */
+
+    @GetMapping("/products")
+    public ResponseEntity<List<ProductResponseDto>> getAllProducts(
+            @RequestParam("pageNumber") int pageNumber,
+            @RequestParam("pageSize") int pageSize,
+            @RequestParam("sortBy") String sortParam){
+        Page<Product> products = productService.getAllProducts(pageNumber, pageSize, sortParam);
+        List<ProductResponseDto> productResponseDtos = new ArrayList<>();
+        products.forEach(product -> productResponseDtos.add(convertToProductResponseDto(product)));
+        return new ResponseEntity<>(productResponseDtos, HttpStatus.OK);
+    }
+
 
     @PostMapping("/products")
     public ResponseEntity<ProductResponseDto> createNewProduct(@RequestBody ProductRequestDto productRequestDto){

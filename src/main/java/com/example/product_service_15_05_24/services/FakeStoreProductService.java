@@ -3,6 +3,8 @@ package com.example.product_service_15_05_24.services;
 import com.example.product_service_15_05_24.dtos.FakeStoreDto;
 import com.example.product_service_15_05_24.exceptions.ProductNotFoundException;
 import com.example.product_service_15_05_24.models.Product;
+import org.springframework.data.domain.Page;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
@@ -15,13 +17,29 @@ import java.util.Objects;
 @Service("fakeStoreProductService")
 public class FakeStoreProductService implements ProductService{
 
-    private RestTemplate restTemplate;
-    public FakeStoreProductService(RestTemplate restTemplate){
+    private final RestTemplate restTemplate;
+    private final RedisTemplate redisTemplate;
+
+    public FakeStoreProductService(RestTemplate restTemplate, RedisTemplate redisTemplate){
         this.restTemplate = restTemplate;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
     public Product getSingleProduct(Long productId) throws ProductNotFoundException{
+
+        // Check In Cache
+        Product productInCache = (Product) redisTemplate.opsForHash().get("PRODUCTS", "PRODUCT_" +productId);
+
+        if (productInCache != null){
+            // Cache Hit
+            System.out.println("Cache hit for product " + productId);
+            return productInCache;
+        }
+
+        // Cache Miss
+        System.out.println("Cache miss for product " + productId);
+
         FakeStoreDto fakeStoreDto = restTemplate.getForObject(
                 "http://fakestoreapi.com/products/" + productId,
                 FakeStoreDto.class
@@ -33,7 +51,11 @@ public class FakeStoreProductService implements ProductService{
                     +" try a product with id less than 21");
         }
 
-        return fakeStoreDto.toProduct();
+
+        Product fakeStoreProduct =  fakeStoreDto.toProduct();
+        // Add it to cache for future reference
+        redisTemplate.opsForHash().put("PRODUCTS", "PRODUCT_" + productId, fakeStoreProduct);
+        return fakeStoreProduct;
         //one dto to anther dto directly
     }
 
@@ -138,5 +160,9 @@ public class FakeStoreProductService implements ProductService{
         }
 
         return response.toProduct();
+    }
+
+    public Page<Product> getAllProducts(int pageNumber, int pageSize, String sortParam){
+        return null;
     }
 }
